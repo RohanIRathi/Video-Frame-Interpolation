@@ -114,7 +114,7 @@ class KernelEstimator(torch.nn.Module):
 
         return k1v, k2v, k1h, k2h
 
-class SperableConvNetwork(torch.nn.Module):
+class SeperableConvNetwork(torch.nn.Module):
     def __init__(self, kernel_size: int = 51):
         super().__init__()
         self.kernel_size = kernel_size
