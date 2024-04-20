@@ -141,9 +141,9 @@ def cupy_kernel(strFunction, objectVariables):
 
 # end
 
-@cupy.util.memoize(for_each_device=True)
+@cupy._util.memoize(for_each_device=True)
 def cupy_launch(strFunction, strKernel):
-    return cupy.cuda.compile_with_cache(strKernel).get_function(strFunction)
+    return cupy.RawModule(code=strKernel).get_function(strFunction)
 
 
 # end
@@ -153,9 +153,9 @@ class FunctionSepconv(torch.autograd.Function):
         super(FunctionSepconv, self).__init__()
 
     # end
-
-    def forward(self, input, vertical, horizontal):
-        self.save_for_backward(input, vertical, horizontal)
+    @staticmethod
+    def forward(net, input, vertical, horizontal):
+        net.save_for_backward(input, vertical, horizontal)
 
         intSample = input.size(0)
         intInputDepth = input.size(1)
@@ -202,8 +202,9 @@ class FunctionSepconv(torch.autograd.Function):
 
     # end
 
-    def backward(self, gradOutput):
-        input, vertical, horizontal = self.saved_tensors
+    @staticmethod
+    def backward(net, gradOutput):
+        input, vertical, horizontal = net.saved_tensors
 
         intSample = input.size(0)
         intInputDepth = input.size(1)
@@ -218,9 +219,9 @@ class FunctionSepconv(torch.autograd.Function):
 
         assert (gradOutput.is_contiguous() == True)
 
-        gradInput = input.new_zeros(intSample, intInputDepth, intInputHeight, intInputWidth) if self.needs_input_grad[0] == True else None
-        gradVertical = input.new_zeros(intSample, intFilterSize, intOutputHeight, intOutputWidth) if self.needs_input_grad[1] == True else None
-        gradHorizontal = input.new_zeros(intSample, intFilterSize, intOutputHeight, intOutputWidth) if self.needs_input_grad[2] == True else None
+        gradInput = input.new_zeros(intSample, intInputDepth, intInputHeight, intInputWidth) if net.needs_input_grad[0] == True else None
+        gradVertical = input.new_zeros(intSample, intFilterSize, intOutputHeight, intOutputWidth) if net.needs_input_grad[1] == True else None
+        gradHorizontal = input.new_zeros(intSample, intFilterSize, intOutputHeight, intOutputWidth) if net.needs_input_grad[2] == True else None
 
         if input.is_cuda == True:
             class Stream:

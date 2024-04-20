@@ -1,4 +1,4 @@
-import sepConvCuda
+from . import sepConvCuda
 
 import torch
 from torch.nn.functional import pad
@@ -69,7 +69,7 @@ class KernelEstimator(torch.nn.Module):
             torch.nn.Conv2d(in_channels=kernel_size, out_channels=kernel_size, kernel_size=3, stride=1, padding=1)
         )
 
-    def forward(self, itensor1, itensor2):
+    def forward(self, itensor1: torch.Tensor, itensor2: torch.Tensor):
         tensorIn = torch.cat([itensor1, itensor2], 1)
 
         tensorConv1 = self.conv1(tensorIn)
@@ -115,42 +115,42 @@ class KernelEstimator(torch.nn.Module):
         return k1v, k2v, k1h, k2h
 
 class SeperableConvNetwork(torch.nn.Module):
-    def __init__(self, kernel_size: int = 51):
+    def __init__(self, kernel_size: int = 51, learning_rate: float = 1e-3):
         super().__init__()
         self.kernel_size = kernel_size
         self.kernel_pad = int (kernel_size // 2)
 
         self.epoch = torch.tensor(0)
         self.kernel_estimator = KernelEstimator(kernel_size)
-        self.optimizer = torch.optim.Adam(self.parameters(), lr = 0.001)
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
         self.criterion = torch.nn.MSELoss()
 
         self.modulePad = torch.nn.ReplicationPad2d([self.kernel_pad, self.kernel_pad, self.kernel_pad, self.kernel_pad])
 
-    def forward(self, frame1, frame2):
-        h1 = int(frame1.shape[0])
-        w1 = int(frame1.shape[1])
-        h2 = int(frame2.shape[0])
-        w2 = int(frame2.shape[1])
+    def forward(self, frame1: torch.Tensor, frame2: torch.Tensor):
+        h1 = int(frame1.shape[2])
+        w1 = int(frame1.shape[3])
+        h2 = int(frame2.shape[2])
+        w2 = int(frame2.shape[3])
         if h1 != h2 or w1 != w2:
             raise 'Frame sizes do not match'
 
         h_padded = False
         w_padded = False
         if h1%32 != 0:
-            pad_h = h1 - (h1%32)
+            pad_h = 32 - (h1%32)
             frame1 = pad(frame1, (0, 0, 0, pad_h))
             frame2 = pad(frame2, (0, 0, 0, pad_h))
             h_padded = True
         if w1%32 != 0:
-            pad_w = w1 - (w1%32)
+            pad_w = 32 - (w1%32)
             frame1 = pad(frame1, (0, pad_w, 0, 0))
             frame2 = pad(frame2, (0, pad_w, 0, 0))
             w_padded = True
         
         k1v, k2v, k1h, k2h = self.kernel_estimator(frame1, frame2)
 
-        interpolated_frame = sepConvCuda.FunctionSepconv()(self.modulePad(frame1), k1v, k1h) + sepConvCuda.FunctionSepconv()(self.modulePad(frame2), k2v, k2h)
+        interpolated_frame = sepConvCuda.FunctionSepconv.apply(self.modulePad(frame1), k1v, k1h) + sepConvCuda.FunctionSepconv.apply(self.modulePad(frame2), k2v, k2h)
 
         if h_padded:
             interpolated_frame = interpolated_frame[:, :, :h1]
@@ -159,7 +159,7 @@ class SeperableConvNetwork(torch.nn.Module):
         
         return interpolated_frame
 
-    def train_model(self, frame1, frame2, frame_gt):
+    def train_model(self, frame1: torch.Tensor, frame2: torch.Tensor, frame_gt: torch.Tensor):
         self.optimizer.zero_grad()
         output = self.forward(frame1, frame2)
         loss = self.criterion(output, frame_gt)
