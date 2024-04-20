@@ -1,9 +1,11 @@
-import torch
 import sepConvCuda
+
+import torch
+from torch.nn.functional import pad
 
 class KernelEstimator(torch.nn.Module):
     def __init__(self, kernel_size: int = 51):
-        super()
+        super().__init__()
         self.kernel_size = kernel_size
 
         self.conv1 = self.basicModule(6, 32)
@@ -114,7 +116,7 @@ class KernelEstimator(torch.nn.Module):
 
 class SperableConvNetwork(torch.nn.Module):
     def __init__(self, kernel_size: int = 51):
-        super()
+        super().__init__()
         self.kernel_size = kernel_size
         self.kernel_pad = int (kernel_size // 2)
 
@@ -126,4 +128,44 @@ class SperableConvNetwork(torch.nn.Module):
         self.modulePad = torch.nn.ReplicationPad2d([self.kernel_pad, self.kernel_pad, self.kernel_pad, self.kernel_pad])
 
     def forward(self, frame1, frame2):
-        pass
+        h1 = int(frame1.shape[0])
+        w1 = int(frame1.shape[1])
+        h2 = int(frame2.shape[0])
+        w2 = int(frame2.shape[1])
+        if h1 != h2 or w1 != w2:
+            raise 'Frame sizes do not match'
+
+        h_padded = False
+        w_padded = False
+        if h1%32 != 0:
+            pad_h = h1 - (h1%32)
+            frame1 = pad(frame1, (0, 0, 0, pad_h))
+            frame2 = pad(frame2, (0, 0, 0, pad_h))
+            h_padded = True
+        if w1%32 != 0:
+            pad_w = w1 - (w1%32)
+            frame1 = pad(frame1, (0, pad_w, 0, 0))
+            frame2 = pad(frame2, (0, pad_w, 0, 0))
+            w_padded = True
+        
+        k1v, k2v, k1h, k2h = self.kernel_estimator(frame1, frame2)
+
+        interpolated_frame = sepConvCuda.FunctionSepconv()(self.modulePad(frame1), k1v, k1h) + sepConvCuda.FunctionSepconv()(self.modulePad(frame2), k2v, k2h)
+
+        if h_padded:
+            interpolated_frame = interpolated_frame[:, :, :h1]
+        if w_padded:
+            interpolated_frame = interpolated_frame[:, :, :, :w1]
+        
+        return interpolated_frame
+
+    def train_model(self, frame1, frame2, frame_gt):
+        self.optimizer.zero_grad()
+        output = self.forward(frame1, frame2)
+        loss = self.criterion(output, frame_gt)
+        loss.backward()
+        self.optimizer.step()
+        return loss
+    
+    def increase_epoch(self):
+        self.epoch += 1
