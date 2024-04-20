@@ -10,8 +10,8 @@ def load_data(frames: list) -> tuple[list, list]:
     train_data, test_data = [], []
 
     for point in data_points:
-        train_data.append((frames[0][point[0]:point[0]+128, point[1]:point[1]+128], frames[2][point[0]:point[0]+128, point[1]:point[1]+128]))
-        test_data.append(frames[1][point[0]:point[0]+128, point[1]:point[1]+128])
+        train_data.append((frames[0][point[0]:point[0]+150, point[1]:point[1]+150], frames[2][point[0]:point[0]+150, point[1]:point[1]+150]))
+        test_data.append(frames[1][point[0]:point[0]+150, point[1]:point[1]+150])
     
     return train_data, test_data
 
