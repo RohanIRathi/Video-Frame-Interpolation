@@ -1,10 +1,10 @@
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import TensorDataset
 from torchvision import transforms
 
 from .data_extracter import extractData
 
-class TrainDataLoader(Dataset):
+class TrainDataLoader(TensorDataset):
     def __init__(self, filename: str, data_points: int = -1):
         self.X, self.y = extractData(filename=filename, training_data=True, datapoints=data_points)
         # self.X, self.y = torch.tensor(self.X), torch.tensor(self.y)
@@ -19,7 +19,7 @@ class TrainDataLoader(Dataset):
         frame2 = self.transform(self.X[index, 1])
         frame_gt = self.transform(self.y[index])
 
-        return frame1, frame2, frame_gt
+        return frame1.cuda(), frame2.cuda(), frame_gt.cuda()
     
     def __len__(self):
         return self.data_size

@@ -48,6 +48,8 @@ def extractData(filename: str, training_data: bool = True, datapoints: int = -1)
         print(f"\033[KProgress: [{'='*round(i*100/(len(frames)-1)):<100}]", end='\r')
     print(f"\nLoaded {len(y)} Data Points")
 
+    del frames
+
     return np.array(X), np.array(y)
 
 if __name__ == "__main__":
