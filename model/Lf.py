@@ -2,12 +2,38 @@ import torch
 from torchvision import models
 
 class FeatureReconstructionLoss:
-    def __init__(self) -> None:
+    """
+    FeatureReconstructionLoss calculates the feature reconstruction loss between two images using a pre-trained VGG19 model.
+
+    Attributes:
+        model (torch.nn.Module): Pre-trained VGG19 model used to extract features.
+    
+    Methods:
+        __init__(): Initializes the FeatureReconstructionLoss object by loading the pre-trained VGG19 model.
+        get_intermediate_output(input_tensor: torch.Tensor) -> torch.Tensor: Retrieves the intermediate feature representation of an input image.
+        reconstruction_loss(im1: torch.Tensor, im2: torch.Tensor) -> torch.Tensor: Calculates the feature reconstruction loss between two images.
+    """
+
+    def __init__(self):
+        """
+        Initializes the FeatureReconstructionLoss object by loading the pre-trained VGG19 model.
+        """
+
         self.model = models.vgg19(weights=models.VGG19_Weights.DEFAULT)
         if torch.cuda.is_available(): self.model.cuda()
 
 
-    def get_intermediate_output(self, input_tensor):
+    def get_intermediate_output(self, input_tensor: torch.Tensor) -> torch.Tensor:
+        """
+        Retrieves the intermediate feature representation of an input image.
+
+        Args:
+            input_tensor (torch.Tensor): Input image tensor.
+
+        Returns:
+            torch.Tensor: Intermediate feature representation tensor.
+        """
+
         intermediate_output = None
         def hook(module, input, output):
             nonlocal intermediate_output
@@ -22,7 +48,18 @@ class FeatureReconstructionLoss:
         return intermediate_output
     
 
-    def reconstruction_loss(self, im1, im2):
+    def reconstruction_loss(self, im1: torch.Tensor, im2: torch.Tensor) -> torch.Tensor:
+        """
+        Calculates the feature reconstruction loss between two images.
+
+        Args:
+            im1 (torch.Tensor): Tensor representing the original image.
+            im2 (torch.Tensor): Tensor representing the generated image.
+
+        Returns:
+            torch.Tensor: Feature reconstruction loss.
+        """
+        
         original_features = self.get_intermediate_output(im1)
         generated_features = self.get_intermediate_output(im2)
         return torch.mean(torch.square(original_features-generated_features))

@@ -8,6 +8,13 @@ from helpers.data_extracter import extractData
 from model.model import SeperableConvNetwork
 
 def main():
+    """
+    Main function for testing the trained model on video frames.
+
+    Returns:
+        None
+    """
+    
     filename = os.path.abspath("Data\\SPIDER-MAN ACROSS THE SPIDER-VERSE - Official Trailer (HD).mp4")
     output_dir = os.path.abspath("output/")
     if not os.path.exists(output_dir):

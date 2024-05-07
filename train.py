@@ -7,6 +7,13 @@ from helpers.TrainDataLoader import TrainDataLoader
 from model.model import SeperableConvNetwork
 
 def main():
+    """
+    Main function for training the separable convolution network model.
+
+    Returns:
+        None
+    """
+    
     filename = os.path.abspath("Data\\SPIDER-MAN ACROSS THE SPIDER-VERSE - Official Trailer #2 (HD).mp4")
     ckpt = os.path.abspath("checkpoints/VFI_checkpoint.pth")
     
@@ -39,11 +46,6 @@ def main():
         model = model.cuda()
     
     data_size = len(train_loader)
-
-    ### Uncomment code for testing ###
-    # model.eval()
-
-    ##################################
 
     print("\n### Starting Training ###")
     model.train()

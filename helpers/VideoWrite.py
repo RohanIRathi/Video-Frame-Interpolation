@@ -1,7 +1,18 @@
 from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 import os
 
-def write_video(image_files, fps):
+def write_video(image_files: list, fps: float) -> None:
+    """
+    Writes a video file from a list of image files.
+
+    Args:
+        image_files (list): List of image file paths.
+        fps (float): Frames per second for the output video.
+
+    Returns:
+        None
+    """
+    
     output_dir = os.path.abspath("output/")
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
