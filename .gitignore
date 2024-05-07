@@ -3,7 +3,7 @@ venv*
 output*
 checkpoints/*
 PPT*
-enhance*
+enhance/*
 
 *.ipynb
 Data/*
