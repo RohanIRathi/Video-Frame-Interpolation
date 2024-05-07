@@ -1,21 +1,43 @@
 import cv2
+import os
+from cv2 import calcOpticalFlowFarneback
 import torch
 import tracemalloc
 import numpy as np
+from multiprocessing import Pool
 
-def load_data(frames: list) -> tuple[list, list]:
-    if len(frames) != 3:
-        return [], []
-    data_points = [(160, 160), (360, 360), (560, 560), (760, 760), (960, 960)]
+def getFlowIndices(train_data: list[tuple[np.ndarray, np.ndarray]]) -> np.ndarray:
+    flows = []
+    for frame1, frame2 in train_data:
+        f1 = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
+        f2 = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
+        flow = calcOpticalFlowFarneback(f1, f2, None, 0.5, 2, 150, 2, 5, 1.1, cv2.OPTFLOW_FARNEBACK_GAUSSIAN)
+        flows.append(np.average(np.linalg.norm(flow, axis=2)))
+    
+    threshold = min(flows) + (0.3 * (max(flows) - min(flows)))
+    select_idx = np.where(np.array(flows) > threshold)[0]
+
+    return select_idx
+
+def load_data(frame0, frame1, frame2) -> tuple[list[tuple[np.ndarray, np.ndarray]], list[np.ndarray]]:
+    w_st = frame0.shape[1] // 10
+    h_st = frame0.shape[0] // 5
     train_data, test_data = [], []
 
-    for point in data_points:
-        train_data.append((frames[0][point[0]:point[0]+150, point[1]:point[1]+150], frames[2][point[0]:point[0]+150, point[1]:point[1]+150]))
-        test_data.append(frames[1][point[0]:point[0]+150, point[1]:point[1]+150])
+    for i in range(10):
+        for j in range(5):
+            x = int(i*w_st)
+            y = int(j*h_st)
+            train_data.append((frame0[y:y+150, x:x+150], frame2[y:y+150, x:x+150]))
+            test_data.append(frame1[y:y+150, x:x+150])
+    
+    select_idx = getFlowIndices(train_data=train_data)
+    train_data = [train_data[idx] for idx in select_idx]
+    test_data = [test_data[idx] for idx in select_idx]
     
     return train_data, test_data
 
-def extractData(filename: str, training_data: bool = True, datapoints: int = -1):
+def extractData(filename: str, training_data: bool = True, datapoints: int = -1) -> tuple[np.ndarray, np.ndarray]:
     video = cv2.VideoCapture(filename=filename)
     frame_count = int(video.get(cv2.CAP_PROP_FRAME_COUNT)) if datapoints == -1 else datapoints
 
@@ -33,19 +55,32 @@ def extractData(filename: str, training_data: bool = True, datapoints: int = -1)
     print(f"\nFrames collected = {len(frames)}\n")
     video.release()
 
-    print("Loading Data...")
     if len(frames) % 2 == 0:
         del frames[-1]
+
+    print("Loading Data...")
     X, y = [], []
-    for i in range(0, len(frames) - 1, 2):
-        if training_data:
-            frame_train_data, frame_test_data = load_data(frames[i:i+3])
-            X += frame_train_data
-            y += frame_test_data
-        else:
-            X += [(frames[i], frames[i+2])]
-            y += [frames[i+1]]
-        print(f"\033[KProgress: [{'='*round(i*100/(len(frames)-1)):<100}]", end='\r')
+    indices = [(frames[i], frames[i+1], frames[i+2]) for i in range(0, len(frames)-1, 2)]
+
+    if training_data:
+        with Pool() as p:
+            data = p.starmap(load_data, indices)
+        for train, test in data:
+            X += train
+            y += test
+    else:
+        for i, j, k in indices:
+            X += [(cv2.cvtColor(i, cv2.COLOR_BGR2RGB), cv2.cvtColor(k, cv2.COLOR_BGR2RGB))]
+            y += [cv2.cvtColor(j, cv2.COLOR_BGR2RGB)]
+    # for i in range(0, len(frames) - 1, 2):
+    #     if training_data:
+    #         frame_train_data, frame_test_data = load_data(frames[i:i+3])
+    #         X += frame_train_data
+    #         y += frame_test_data
+    #     else:
+    #         X += [(frames[i], frames[i+2])]
+    #         y += [frames[i+1]]
+    #     print(f"\033[KProgress: [{'='*round(i*100/(len(frames)-1)):<100}]", end='\r')
     print(f"\nLoaded {len(y)} Data Points")
 
     del frames
@@ -54,7 +89,7 @@ def extractData(filename: str, training_data: bool = True, datapoints: int = -1)
 
 if __name__ == "__main__":
     tracemalloc.start()
-    filename = "E:\\Computer Vision\\Project\\code\\Data\\SPIDER-MAN ACROSS THE SPIDER-VERSE - Official Trailer #2 (HD).mp4"
+    filename = os.path.abspath("Data\\SPIDER-MAN ACROSS THE SPIDER-VERSE - Official Trailer #2 (HD).mp4")
 
     X, y = extractData(filename)
     print("Data Extracted")

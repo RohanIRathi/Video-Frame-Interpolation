@@ -1,4 +1,5 @@
 from . import sepConvCuda
+from .Lf import FeatureReconstructionLoss
 
 import torch
 from torch.nn.functional import pad
@@ -122,8 +123,10 @@ class SeperableConvNetwork(torch.nn.Module):
 
         self.epoch = torch.tensor(0)
         self.kernel_estimator = KernelEstimator(kernel_size)
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
-        self.criterion = torch.nn.MSELoss()
+        self.optimizer = torch.optim.Adamax(self.parameters(), lr=learning_rate)
+        self.criterion1 = torch.nn.MSELoss()
+        vgg19 = FeatureReconstructionLoss()
+        self.criterion2 = vgg19.reconstruction_loss
 
         self.modulePad = torch.nn.ReplicationPad2d([self.kernel_pad, self.kernel_pad, self.kernel_pad, self.kernel_pad])
 
@@ -133,7 +136,7 @@ class SeperableConvNetwork(torch.nn.Module):
         h2 = int(frame2.shape[2])
         w2 = int(frame2.shape[3])
         if h1 != h2 or w1 != w2:
-            raise 'Frame sizes do not match'
+            raise Exception('Frame sizes do not match')
 
         h_padded = False
         w_padded = False
@@ -161,11 +164,18 @@ class SeperableConvNetwork(torch.nn.Module):
 
     def train_model(self, frame1: torch.Tensor, frame2: torch.Tensor, frame_gt: torch.Tensor):
         self.optimizer.zero_grad()
+        # output = self.forward(frame1, frame2)
+        # mseloss = self.criterion1(output, frame_gt)
+        # mseloss.backward()
+        # self.optimizer.step()
         output = self.forward(frame1, frame2)
-        loss = self.criterion(output, frame_gt)
-        loss.backward()
+        lfloss = self.combined_loss(output, frame_gt)
+        lfloss.backward()
         self.optimizer.step()
-        return loss
+        return lfloss
     
     def increase_epoch(self):
         self.epoch += 1
+    
+    def combined_loss(self, f1, f2):
+        return self.criterion2(f1, f2) + self.criterion1(f1, f2) * 0.2

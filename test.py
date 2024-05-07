@@ -19,24 +19,31 @@ def main():
     kernel_size = checkpoint['kernel_size']
     model = SeperableConvNetwork(kernel_size=kernel_size)
     state_dict = checkpoint['state_dict']
-    model.load_state_dict(torch.load(state_dict))
+    model.load_state_dict(state_dict)
     model.epoch = checkpoint['epoch']
+    print(f"\nModel has been trained for {model.epoch} epochs")
 
-    X, y = extractData(filename=filename, training_data=False, datapoints=3)
+    X, y = extractData(filename=filename, training_data=False)
     transform = transforms.Compose([transforms.ToTensor()])
 
-    
-    model.eval()
-    for i in range(len(y)):
-        frame1 = transform(X[i, 0]).unsqueeze(0)
-        frame2 = transform(X[i, 1]).unsqueeze(0)
-        frame_gt = transform(y[i]).unsqueeze(0)
+    model = model.cuda()
 
-        if torch.cuda.is_available():
-            frame1, frame2, frame_gt = frame1.cuda(), frame2.cuda(), frame_gt.cuda()
+    total_psnr = 0
+    model.eval()
+    frame_count = len(y)
+    print("Testing...")
+    for i in range(frame_count):
+        torch.cuda.empty_cache()
+        frame1 = transform(X[i, 0]).unsqueeze(0).cuda()
+        frame2 = transform(X[i, 1]).unsqueeze(0).cuda()
+        frame_gt = transform(y[i]).unsqueeze(0).cuda()
         frame_out = model(frame1, frame2)
 
-        psnr = -10 * np.log10(torch.mean(torch.pow(frame_gt - frame_out, 2)).item())
-        print(f"Test {i}: PSNR = {psnr:.16f}")
-        save_image(frame_out, os.path.abspath(f"output/{i}_pred.png"), range=(0, 1))
-        save_image(frame_gt, os.path.abspath(f"output/{i}_gt.png"), range=(0, 1))
+        total_psnr += -10 * np.log10(torch.mean(torch.pow(frame_gt - frame_out, 2)).item())
+        save_image(frame_out, os.path.abspath(f"output/{i}_pred.png"))
+        save_image(frame_gt, os.path.abspath(f"output/{i}_gt.png"))
+        print(f"\033[KProgress: [{'='*round((i/frame_count)*100):<100}] ({i}/{frame_count})", end='\r')
+    print(f"\nAverage PSNR = {total_psnr/len(y):.16f}")
+
+if __name__ == '__main__':
+    main()

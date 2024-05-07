@@ -1,7 +1,9 @@
 venv*
 */__pycache__
-output/*
+output*
 checkpoints/*
+PPT*
+enhance*
 
 *.ipynb
 Data/*

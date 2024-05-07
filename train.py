@@ -1,8 +1,7 @@
-import gc
 import os
+from datetime import datetime
 import torch
 from torch.utils.data import DataLoader
-from datetime import datetime
 
 from helpers.TrainDataLoader import TrainDataLoader
 from model.model import SeperableConvNetwork
@@ -17,16 +16,26 @@ def main():
 
     ### Hyperparameters ###
     batch_size=16
-    epochs = 50
-    kernel_size = 41
+    epochs = 1000
+    kernel_size = 51
+    learning_rate = 1e-3
 
     #######################
 
     train_data = TrainDataLoader(filename=filename)
-    train_loader = DataLoader(dataset=train_data, batch_size=batch_size, shuffle=True, num_workers=8, persistent_workers=True, drop_last=True, prefetch_factor=1)
+    train_loader = DataLoader(dataset=train_data, batch_size=batch_size, num_workers=10, persistent_workers=True, drop_last=True, prefetch_factor=2)
 
-    model = SeperableConvNetwork(kernel_size=kernel_size)
-    if torch.cuda.is_available:
+    if os.path.exists(ckpt):
+        checkpoint = torch.load(ckpt)
+        kernel_size = checkpoint['kernel_size']
+        model = SeperableConvNetwork(kernel_size=kernel_size)
+        state_dict = checkpoint['state_dict']
+        model.load_state_dict(state_dict)
+        model.epoch = checkpoint['epoch']
+    else:
+        model = SeperableConvNetwork(kernel_size=kernel_size, learning_rate=learning_rate)
+    
+    if torch.cuda.is_available():
         model = model.cuda()
     
     data_size = len(train_loader)
@@ -42,15 +51,15 @@ def main():
         start_ = datetime.now()
         if model.epoch == epochs: break
         for batch_num, (frame1, frame2, frame_gt) in enumerate(train_loader):
-            loss = model.train_model(frame1=frame1, frame2=frame2, frame_gt=frame_gt)
+            lfloss = model.train_model(frame1=frame1, frame2=frame2, frame_gt=frame_gt)
             if batch_num%100==0:
-                print(f"Training Epoch: [{str(int(model.epoch)):>4}/{str(epochs):<4}] | Step: [{str(batch_num):>4}/{str(data_size):<4}] | Loss: {loss.item()}")
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+                print(f"Training Epoch: [{str(int(model.epoch)):>4}/{str(epochs):<4}] | Step: [{str(batch_num):>4}/{str(data_size):<4}] | Lf Loss: {lfloss.item():.6f}")
+        torch.cuda.empty_cache()
         model.increase_epoch()
-        print(f"Epoch {str(model.epoch)}: {(datetime.now() - start_).seconds:.2f}s")
+        print(f"Epoch [{str(model.epoch.item()):>3}]: {(datetime.now() - start_).seconds} seconds")
 
         # gc.collect()
+        torch.save({'epoch': model.epoch, 'state_dict': model.state_dict(), 'kernel_size': kernel_size}, os.path.join(ckpt_dir, f'VFI_{model.epoch}.pth'))
     torch.save({'epoch': model.epoch, 'state_dict': model.state_dict(), 'kernel_size': kernel_size}, ckpt)
     
 if __name__ == "__main__":
