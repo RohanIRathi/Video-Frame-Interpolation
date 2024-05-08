@@ -1,6 +1,6 @@
 # Video Frame Interpolation via Adaptive Sepearable Convolution
 
-This is our implementation of the work of Niklaus et al.'s Adaptive Separable Convolution method for video frame interpolation <a href="references">[1]</a>. we explore the efficacy of this technique by applying the same network structure to a smaller dataset and experimenting with various loss functions.
+This is our implementation of the work of Niklaus et al.'s Adaptive Separable Convolution method for video frame interpolation \[[1](#references)\]. we explore the efficacy of this technique by applying the same network structure to a smaller dataset and experimenting with various loss functions.
 
 ## Installation
 
