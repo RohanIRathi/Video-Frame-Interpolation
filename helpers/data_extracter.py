@@ -71,7 +71,7 @@ def extractData(filename: str, training_data: bool = True, datapoints: int = -1)
     Returns:
         tuple: Tuple containing input data and target data.
     """
-    
+
     video = cv2.VideoCapture(filename=filename)
     frame_count = int(video.get(cv2.CAP_PROP_FRAME_COUNT)) if datapoints == -1 else datapoints
 
